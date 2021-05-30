@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width">
+
+  <title>Bryan Whitehead Patient Appointment Maker</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300&display=swap" rel="stylesheet">
+
+<style>
+    * { 
+        font-family: 'Noto Sans JP', sans-serif;
+        margin: 0;
+        font-size: 16px;
+    }
+    body{
+        padding: 30px;
+    }
+    .container{
+        display: flex;
+        flex-direction: column;
+        border: 1px solid black; 
+        box-shadow: 0px 4px 12px -1px rgba(0,0,0,0.54);
+        padding: 5px;
+    }
+    .header-row{
+        border-bottom: 1px black solid;
+        font-size: 13px;
+        padding: 10px;
+    }
+    .Patient {
+        color: black;
+        background-color: rgb(238, 234, 234);
+        border: 1px solid rgb(39, 39, 39);
+    }
+    .Meeting {
+        background-color: rgb(154, 180, 218);
+        border: 1px solid rgb(54, 55, 92);
+    }
+    .Meeting, .Patient {
+        width: 100px;
+        border-radius: 3px;
+    }
+    .row {
+        display: flex;
+        flex-direction: row;
+        padding: 5px;
+        flex-wrap: wrap;
+    }
+    .type, .length {
+        padding: 5px;
+    }
+    .length {
+        background-color: rgb(215, 228, 215);
+        border: 1px solid rgb(32, 39, 32);
+        margin-left: 20px;
+        border-radius: 3px;
+    }
+    .header-type {
+        width: 110px;
+        font-weight: bold;
+    }
+    .output-array {
+        margin-left: 8%;
+    }
+    .header-length {
+        font-weight: bold;
+        margin-left: 20px;
+    }
+    pre{
+        font-size: 11px;
+        font-family: 'Courier New', Courier, monospace;
+    }
+    .image-circle-right{
+        position:absolute;
+        right: 0;
+        bottom: -650px;
+    }
+</style>
+</head>
+
+<body>
+<div class="container">
+    <div class="header-row"><h3>Bryan Whitehead - Patient Appointment / Meeting Scheduler for a sample Hospital</h3>The css, data, and javaScript are all in this file.  I thought I would put this up
+    since there are some good examples of .getTime()    </div>
+    <div class="row">
+        <div id= "box-schedule" class="box-schedule"></div>
+        <div id="output-array" class="output-array"><!-- contents of the object array  --></div>
+    </div>
+</div>
+<div class="image-circle-right"><img src="index.png" /></div>
+
+<script>
+
+
+// This function returns an array object of a visit / meeting schedule to make sure that patient appointments do not overlap with meetings.
+// all times are handled in UTC and converted to local time using .toLocaleString().
+function predictRoundingSchedule(startTime,patients,meetings){
+                                 
+    const numEvents = patients.length + meetings.length;                  // count events for processing
+    let exampleOutput = [];                                                             // array to hold patient and meeting objects with time code.
+    
+    // sort patients and meetings arrays of objects by Rank and StartTime properties.
+    patients.sort((a,b) => (a.Rank > b.Rank) ? 1 : ((b.Rank > a.Rank) ? -1 : 0));
+    meetings.sort((a,b) => (a.StartTime > b.StartTime) ? 1 : ((b.StartTime > a.StartTime) ? -1 : 0));    
+    
+    // create indexes to assign correct event to the output
+    //const offset = curTime.getTimezoneOffset();
+    let currentAppointment = 0;
+    let currentMeeting = 0;
+    let curTime = new Date(2021,4,20,8,30);
+    let endTime = 0;
+    let meetingsDone = false;
+    let patientsDone = false;
+    
+    for (i = 0; i < numEvents; i++){
+        // look for time open to fit in current patient or end of meetings / patients
+        if ((((patients[currentAppointment].Duration * 60000) + new Date(curTime).getTime()) < meetings[currentMeeting].StartTime.getTime() || meetingsDone === true) && patientsDone == false){
+            endtime = new Date(curTime).getTime() + patients[currentAppointment].Duration * 60000;
+            // add appointment to output array
+            exampleOutput.push({
+                Type: "Patient",
+                ID: patients[currentAppointment].PatientID,
+                StartTime: new Date(curTime).toLocaleString(),
+                EndTime: new Date(endtime).toLocaleString(), 
+                Rank: patients[currentAppointment].Rank,
+                Duration: patients[currentAppointment].Duration                   // added to project for visualization
+            });                                                    
+            currentAppointment += 1;
+
+            // update time if not last patient
+            if (currentAppointment < patients.length){
+                curTime = new Date(curTime).getTime() + patients[currentAppointment-1].Duration * 60000;
+            }
+            else {
+                // there could be more meetings, but patients are done.
+                currentAppointment --;                                      // roll back patient counter and set boolean as done (true)
+                patientsDone = true;
+                curTime = new Date(curTime).getTime() + patients[currentAppointment-1].Duration * 60000;
+            }
+        }
+        // its a meeting
+        else {                                                                                                      
+            endTime = new Date(meetings[currentMeeting].StartTime).getTime() + meetings[currentMeeting].Duration * 60000;
+            exampleOutput.push({
+                Type: 'Meeting',
+                ID: meetings[currentMeeting].MeetingID,
+                StartTime: (meetings[currentMeeting].StartTime).toLocaleString(),
+                EndTime: new Date(endTime).toLocaleString(), 
+                Duration: meetings[currentMeeting].Duration                   // added to project for visualization
+            });
+            currentMeeting ++;
+            if (currentMeeting == meetings.length){
+                meetingsDone = true;
+                currentMeeting --;                          // set counter back to avoid possible error 
+                if (i == numEvents) break;                  // catch cases where a meeting is the last thing.
+            }
+            curTime = new Date(endTime);
+        }
+    }
+
+    // #############   remove in production ################ //
+    console.log(exampleOutput);
+
+    return(exampleOutput);
+}
+
+// given data.
+const examplePatients=[
+	{
+		PatientID:1,
+		Rank:1,
+		Duration:15
+	},
+	{
+		PatientID:3,
+		Rank:2,
+		Duration:25
+	},
+	{
+		PatientID:5,
+		Rank:3,
+		Duration:10
+	},
+	{
+		PatientID:4,
+		Rank:4,
+		Duration:15
+	},
+	{
+		PatientID:2,
+		Rank:5,
+		Duration:30
+	},
+	{
+		PatientID:6,
+		Rank:10,
+		Duration:10
+	},
+	{
+		PatientID:7,
+		Rank:9,
+		Duration:15
+	},
+	{
+		PatientID:8,
+		Rank:8,
+		Duration:40
+	},
+	{
+		PatientID:9,
+		Rank:7,
+		Duration:20
+	},
+	{
+		PatientID:10,
+		Rank:6,
+		Duration:30
+	}
+];
+
+const exampleMeetings=[
+    {
+		MeetingID:2,
+		StartTime:new Date(2021,4,20,9,0),
+		Duration:30
+	},
+	{
+		MeetingID:1,
+		StartTime:new Date(2021,4,20,10,0),
+		Duration:60
+	},
+	{
+		MeetingID:4,
+		StartTime:new Date(2021,4,20,13,0),
+		Duration:10
+	},
+	{
+		MeetingID:5,
+		StartTime:new Date(2021,4,20,15,0),
+		Duration:20
+	}
+];
+
+const exampleStartTime = new Date(2021,4,20,8,30);
+
+const outputScheduleData = predictRoundingSchedule(exampleStartTime, examplePatients, exampleMeetings);
+
+// output object data to the second section
+var html = "<div>";
+    html+="<div class='row'>";
+    html+="<div class='header-type'>Appointment:</div><div class='header-length'>Length (mins):</div></div>";
+    for (var i = 0; i < outputScheduleData.length; i++) {
+        html+="<div class='row'>"
+        html+="<div class='type " + outputScheduleData[i].Type +"'>"+outputScheduleData[i].Type + ": " + outputScheduleData[i].ID + "</div>";
+        html+="<div class='length' style='width: " + (outputScheduleData[i].Duration * 3) +"px;'>"+outputScheduleData[i].Duration + " </div>";
+        html+="</div>";
+    }
+    html+="</div><br /><br />";
+    
+//output data to appropriate div inners.
+document.getElementById("box-schedule").innerHTML = html;
+document.getElementById("output-array").innerHTML = 'Array of Objects Output<br/><pre>' + JSON.stringify({outputScheduleData}, "null", 2) + '</pre>';
+
+// output to console the object array in local time (already converted)
+//console.log(JSON.stringify({outputScheduleData}, 'null', 4));
+  </script>
+
+</body>
+</html>
